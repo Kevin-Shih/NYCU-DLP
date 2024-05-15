@@ -9,8 +9,8 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, dim=768, num_heads=16, attn_drop=0.1):
         super(MultiHeadAttention, self).__init__()
         self.num_heads = num_heads
-        self.embed_dim = dim  #28*28 768
-        self.perhead_dim = dim//num_heads #49
+        self.embed_dim = dim  #768
+        self.perhead_dim = dim//num_heads #48
         self.attn_drop = attn_drop
 
         self.linear_in = nn.Linear(self.embed_dim, 3 * self.embed_dim)
@@ -26,14 +26,16 @@ class MultiHeadAttention(nn.Module):
         '''
         bs, token_len, _ = x.size()
         qkv:Tensor = self.linear_in(x)
+        # divide to 16H and swap H & T then chunk it into q,k,v
         q, k, v = qkv.reshape(bs, token_len, self.num_heads, 3 * self.perhead_dim)\
-                        .permute(0, 2, 1, 3).chunk(3, dim=-1) #-> B, H, T(seq), dim
-
+                        .permute(0, 2, 1, 3).chunk(3, dim=-1) #-> 32B, 16H, 256T(seq), 48dim
         dk = q.size()[-1]
-        scores = q.matmul(k.transpose(-2, -1)) / math.sqrt(dk) # QK^T/sqrt(dk)
+        # see 32B, 16H as batch like, compute at once
+        scores = q.matmul(k.transpose(-2, -1)) / math.sqrt(dk) # QK^T/sqrt(dk) 
         attention = F.softmax(scores, dim= -1)
+        # swap H & T then merge all heads
         out = torch.matmul(attention, v)\
-                .permute(0, 2, 1, 3).reshape(bs, token_len, self.embed_dim) #-> B, T(seq), dim
+                .permute(0, 2, 1, 3).reshape(bs, token_len, self.embed_dim) #-> 32B, 256T(seq), 768dim
 
         out = self.linear_out(out)
         return out

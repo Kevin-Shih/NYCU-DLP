@@ -34,8 +34,9 @@ class MaskGit(nn.Module):
 ##TODO2 step1-1: input x fed to vqgan encoder to get the latent and zq
     @torch.no_grad()
     def encode_to_z(self, x):
-        codebook_mapping, codebook_indices, q_loss = self.vqgan.encode(x)
-        return codebook_mapping
+        codebook_mapping, codebook_indices, _ = self.vqgan.encode(x)
+        codebook_indices = codebook_indices.view(codebook_mapping.shape[0], -1)
+        return codebook_mapping, codebook_indices
     
 ##TODO2 step1-2:    
     def gamma_func(self, mode="cosine"):
@@ -51,26 +52,29 @@ class MaskGit(nn.Module):
 
         """
         if mode == "linear":
-            raise Exception('TODO2 step1-2!')
-            return None
+            return lambda gamma: 1 - gamma
         elif mode == "cosine":
-            raise Exception('TODO2 step1-2!')
-            return None
+            return lambda gamma: np.cos(gamma * np.pi / 2)
         elif mode == "square":
-            raise Exception('TODO2 step1-2!')
-            return None
+            return lambda gamma: 1 - gamma ** 2
         else:
             raise NotImplementedError
 
 ##TODO2 step1-3:            
     def forward(self, x):
-        
-        z_indices=None #ground truth
-        logits = None  #transformer predict the probability of tokens
-        raise Exception('TODO2 step1-3!')
+        #z_indices: ground truth
+        #logits:    transformer predict the probability of tokens
+        _, z_indices = self.encode_to_z(x)
+        device = z_indices.device
+        ratio = math.floor(self.gamma(np.random.uniform()) * z_indices.shape[1])
+        mask_index = torch.rand(z_indices.shape, device= device).topk(ratio, dim= 1).indices
+        mask = torch.zeros(z_indices.shape, dtype= torch.bool, device= device)
+        mask.scatter_(dim= 1, index= mask_index, value= True)
+        masked_indices = mask * z_indices + (~mask) * torch.full_like(z_indices, self.mask_token_id)
+        logits = self.transformer(masked_indices)
         return logits, z_indices
     
-##TODO3 step1-1: define one iteration decoding   
+##TODO3 step1-1: define one iteration decoding
     @torch.no_grad()
     def inpainting(self):
         raise Exception('TODO3 step1-1!')

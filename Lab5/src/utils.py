@@ -4,6 +4,7 @@ from torchvision import transforms
 from torchvision.datasets.folder import default_loader as imgloader
 import os
 import torch.nn as nn
+from torch.optim.lr_scheduler import _LRScheduler
 
 class LoadTrainData(torchData):
     """Training Dataset Loader
@@ -90,3 +91,10 @@ class LoadMaskData(torchData):
         path = self.folder[index]
         return self.transform(imgloader(path))
     
+class WarmUpLR(_LRScheduler):
+    def __init__(self, optimizer, warmup_epoch=10, total_iters= 197, last_epoch= -1):
+        self.total_iters = total_iters*warmup_epoch
+        super().__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        return [base_lr * self.last_epoch / (1e-8 if self.total_iters == 0 else self.total_iters) for base_lr in self.base_lrs]
