@@ -1,4 +1,5 @@
 import os
+from joblib import PrintTime
 import numpy as np
 from tqdm import tqdm
 import argparse
@@ -34,11 +35,10 @@ class TrainTransformer:
         for self.epoch in range(1, args.epochs+1):
             self._train_one_epoch()
             valid_loss = self._eval_one_epoch()
-            # print(f'Avg. Validation loss = {valid_loss:.4f}')
             
             if self.epoch % args.ckpt_interval == 0:
                 tf_statedict = self.model.module.transformer.state_dict() if args.data_parallel else self.model.transformer.state_dict()
-                name = f'{args.name}_epoch{self.epoch}' if len(args.name) > 0 else f'epoch{self.epoch}'
+                name = f'{args.name}_ep{self.epoch}_{valid_loss:.3f}' if len(args.name) > 0 else f'epoch{self.epoch}'
                 torch.save(tf_statedict, os.path.join(args.ckpt_root, f"tf_{name}.pt"))
                 torch.save(self.model.state_dict(), os.path.join(args.ckpt_root, f"maskgit_{name}.pt"))
             # torch.save(self.model.module.transformer.state_dict(), os.path.join(args.ckpt_root, "transformer_current.pt"))
@@ -52,9 +52,6 @@ class TrainTransformer:
                 if not args.data_parallel:
                     imgs = imgs.to(device=args.device)
                 logits, z_indices = self.model(imgs)
-                # print()
-                # print(logits.shape, z_indices.shape)
-                # print(logits.reshape(-1, logits.size(-1)).shape, z_indices.reshape(-1).shape)
                 loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), z_indices.reshape(-1))
                 loss.backward()
                 if self.step % args.accum_grad == 0:
@@ -71,7 +68,7 @@ class TrainTransformer:
     def _eval_one_epoch(self):
         self.model.eval()
         loss_all=0
-        with tqdm(total= len(self.val_loader), desc=f"Valid Epoch {self.epoch}", ncols=100) as pbar:
+        with tqdm(total=len(self.val_loader), desc=f"Valid Epoch {self.epoch}", ncols=100) as pbar:
             for imgs in self.val_loader:
                 if not args.data_parallel:
                     imgs = imgs.to(device=args.device)
@@ -80,9 +77,8 @@ class TrainTransformer:
                 loss_all+=loss.item()
                 pbar.update(1)
         avg_loss = loss_all/len(self.val_loader)
-        pbar.set_postfix_str(f'Avg. Loss={avg_loss:.4f}')
-        pbar.refresh()
         pbar.close()
+        print(f'Valid Epoch {self.epoch}: Avg. Validation Loss={avg_loss:.4f}')
         self.model.train()
         return avg_loss
 
