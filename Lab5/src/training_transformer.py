@@ -99,9 +99,9 @@ class TrainTransformer:
 
     def configure_optimizers(self):
         if args.data_parallel:
-            optimizer = torch.optim.Adam(self.model.module.transformer.parameters(), lr=1e-4, betas=(0.9, 0.96), weight_decay=5e-3)
+            optimizer = torch.optim.Adam(self.model.module.transformer.parameters(), lr=args.learning_rate, betas=(0.9, 0.96), weight_decay=5e-3)
         else:
-            optimizer = torch.optim.Adam(self.model.transformer.parameters(), lr=1e-4, betas=(0.9, 0.96), weight_decay=5e-3)
+            optimizer = torch.optim.Adam(self.model.transformer.parameters(), lr=args.learning_rate, betas=(0.9, 0.96), weight_decay=5e-3)
         scheduler = WarmUpLR(
             optimizer=optimizer,
             warmup_epoch= args.warmup_epoch,
