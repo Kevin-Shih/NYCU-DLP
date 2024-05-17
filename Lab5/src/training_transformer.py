@@ -23,7 +23,7 @@ class TrainTransformer:
             self.model = VQGANTransformer(MaskGit_CONFIGS["model_param"]).to(device=args.device)
         self.load_data(args)
         self.optim, self.scheduler = self.configure_optimizers()
-        self.scheduler2 = ReduceLROnPlateau(self.optim, patience=3, cooldown=5, min_lr=1e-8)
+        self.scheduler2 = ReduceLROnPlateau(self.optim, patience=5, cooldown=5, min_lr=1e-8)
         self.epoch = 0
         os.makedirs(args.ckpt_root, exist_ok=True)
         if len(args.start_from_ckpt) > 0:
@@ -140,12 +140,12 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, default='', help='Run name')
     parser.add_argument('--accum-grad', type=int, default=6, help='Number for gradient accumulation.')
 
-    #you can modify the hyperparameters 
+    #you can modify the hyperparameters
     parser.add_argument('--epochs', type=int, default=75, help='Number of epochs to train.')
     parser.add_argument('--ckpt-interval', type=int, default=1, help='Save CKPT per ** epochs(defcault: 1)')
     parser.add_argument('--start_from_ckpt', type=str, default='', help='start_from_ckpt.')
     parser.add_argument('--learning-rate', type=float, default=1e-4, help='Learning rate.')
-    parser.add_argument('--warmup_epoch', type=int, default=5, help='warmup_epoch.')
+    parser.add_argument('--warmup_epoch', type=int, default=10, help='warmup_epoch.')
 
     parser.add_argument('--MaskGitConfig', type=str, default='config/MaskGit.yml', help='Configurations for TransformerVQGAN')
 

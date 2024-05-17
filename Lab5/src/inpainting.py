@@ -30,7 +30,8 @@ class MaskGIT:
     @staticmethod
     def prepare():
         os.makedirs(args.out, exist_ok=True)
-        os.makedirs(f"{args.out}/final_results", exist_ok=True)
+        for step in range(0, args.sweet_spot):
+            os.makedirs(f"{args.out}/final_results_step{step}", exist_ok=True)
         os.makedirs(f"{args.out}/mask_scheduling", exist_ok=True)
         os.makedirs(f"{args.out}/imga", exist_ok=True)
 
@@ -60,7 +61,7 @@ class MaskGIT:
                 if step == self.sweet_spot:
                     break
                 # ratio = np.floor(self.model.gamma(step) * mask_num) #this should be updated
-                ratio = (step+1) / self.total_iter #this should be updated
+                ratio = (step) / self.total_iter #this should be updated
                 # z_indices_predict, mask_bc = self.model.inpainting(ratio, z_indices, mask_bc, mask_num) # predict
                 z_indices_predict, mask_bc = self.model.inpainting(ratio, z_indices_predict, mask_bc, mask_num) # predict
 
@@ -78,7 +79,7 @@ class MaskGIT:
                 imga[step+1]=dec_img_ori #get decoded image
 
             ##decoded image of the sweet spot only, the test_results folder path will be the --predicted-path for fid score calculation
-            vutils.save_image(dec_img_ori, os.path.join(f"{args.out}/final_results", f"image_{i:03d}.png"), nrow=1) 
+                vutils.save_image(dec_img_ori, os.path.join(f"{args.out}/final_results_step{step}", f"image_{i:03d}.png"), nrow=1) 
 
             #demo score 
             vutils.save_image(maska, os.path.join(f"{args.out}/mask_scheduling", f"test_{i}.png"), nrow=10) 
@@ -137,8 +138,8 @@ if __name__ == '__main__':
     parser.add_argument('--test-maskedimage-path', type=str, default='../dataset/cat_face/masked_image', help='Path to testing image dataset.')
     parser.add_argument('--test-mask-path', type=str, default='../dataset/mask64', help='Path to testing mask dataset.')
     #MVTM parameter
-    parser.add_argument('-t', '--sweet-spot', type=int, default=15, help='sweet spot: the best step in total iteration')  
-    parser.add_argument('-T', '--total-iter', type=int, default=15, help='total step for mask scheduling')
+    parser.add_argument('-t', '--sweet-spot', type=int, default=8, help='sweet spot: the best step in total iteration')  
+    parser.add_argument('-T', '--total-iter', type=int, default=8, help='total step for mask scheduling')
     parser.add_argument('--mask-func', type=str, default='cosine', help='mask scheduling function')
     parser.add_argument('-o', '--out', type=str, default='test', help='output path')
 
