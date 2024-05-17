@@ -1,3 +1,6 @@
+from pickle import FALSE
+from re import T
+from sympy import false
 import torch 
 import torch.nn as nn
 import yaml
@@ -6,6 +9,8 @@ import math
 import numpy as np
 from .VQGAN import VQGAN
 from .Transformer import BidirectionalTransformer
+import torch.nn.functional as F
+from torch import Tensor
 
 
 #TODO2 step1: design the MaskGIT model
@@ -21,13 +26,13 @@ class MaskGit(nn.Module):
         self.transformer = BidirectionalTransformer(configs['Transformer_param'])
 
     def load_transformer_checkpoint(self, load_ckpt_path):
-        self.transformer.load_state_dict(torch.load(load_ckpt_path))
+        self.transformer.load_state_dict(torch.load(load_ckpt_path, map_location="cuda:1"))
 
     @staticmethod
     def load_vqgan(configs):
         cfg = yaml.safe_load(open(configs['VQ_config_path'], 'r'))
         model = VQGAN(cfg['model_param'])
-        model.load_state_dict(torch.load(configs['VQ_CKPT_path']), strict=True) 
+        model.load_state_dict(torch.load(configs['VQ_CKPT_path'], map_location="cuda:1"), strict=True) 
         model = model.eval()
         return model
     
@@ -76,26 +81,31 @@ class MaskGit(nn.Module):
     
 ##TODO3 step1-1: define one iteration decoding
     @torch.no_grad()
-    def inpainting(self):
-        raise Exception('TODO3 step1-1!')
-        logits = self.transformer(None)
+    def inpainting(self, ratio:float, z_indices:Tensor, mask:Tensor, mask_num):
+        masked_indices = (~mask) * z_indices + mask * torch.full_like(z_indices, self.mask_token_id) # masked z
+        logits = self.transformer(masked_indices)
         #Apply softmax to convert logits into a probability distribution across the last dimension.
-        logits = None
+        probability = F.softmax(logits, dim= -1)
 
         #FIND MAX probability for each token value
-        z_indices_predict_prob, z_indices_predict = None
+        z_indices_predict_prob, z_indices_predict = probability.max(dim= -1)
 
-        ratio=None 
+
         #predicted probabilities add temperature annealing gumbel noise as confidence
-        g = None  # gumbel noise
+        g = torch.distributions.Gumbel(0,1).sample()  # gumbel noise
         temperature = self.choice_temperature * (1 - ratio)
-        confidence = z_indices_predict_prob + temperature * g
+        confidence:Tensor = z_indices_predict_prob + temperature * g
         
         #hint: If mask is False, the probability should be set to infinity, so that the tokens are not affected by the transformer's prediction
         #sort the confidence for the rank 
         #define how much the iteration remain predicted tokens by mask scheduling
         #At the end of the decoding process, add back the original token values that were not masked to the predicted tokens
-        mask_bc=None
+        n = int(np.ceil(self.gamma(ratio) * mask_num))
+        confidence[masked_indices != self.mask_token_id] = torch.inf
+        _, idx = confidence.topk(n-1, dim=-1, largest=False) #update indices to mask only smallest n token
+        mask_bc = torch.zeros(z_indices.shape, dtype=torch.bool).to(idx.device)
+        mask_bc = mask_bc.scatter_(dim= 1, index= idx, value= True)
+        z_indices_predict = (~mask) * z_indices + mask * z_indices_predict# masked z
         return z_indices_predict, mask_bc
     
 __MODEL_TYPE__ = {

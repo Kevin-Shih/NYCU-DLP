@@ -23,6 +23,7 @@ class TrainTransformer:
             self.model = VQGANTransformer(MaskGit_CONFIGS["model_param"]).to(device=args.device)
         self.load_data(args)
         self.optim, self.scheduler = self.configure_optimizers()
+        self.scheduler2 = ReduceLROnPlateau(self.optim, patience=5, cooldown=3, min_lr=1e-8)
         self.epoch = 0
         os.makedirs(args.ckpt_root, exist_ok=True)
         if len(args.start_from_ckpt) > 0:
@@ -32,22 +33,25 @@ class TrainTransformer:
 
     def train(self):
         self.step = 0
+        best_vloss = 1.5
+        best_epoch = 0
         for self.epoch in range(1, args.epochs+1):
             self._train_one_epoch()
             valid_loss = self._eval_one_epoch()
-            
-            if self.epoch % args.ckpt_interval == 0:
+            self.scheduler2.step(valid_loss)
+            if self.epoch % args.ckpt_interval == 0 and valid_loss < 1.5:
                 tf_statedict = self.model.module.transformer.state_dict() if args.data_parallel else self.model.transformer.state_dict()
                 name = f'{args.name}_ep{self.epoch}_{valid_loss:.3f}' if len(args.name) > 0 else f'epoch{self.epoch}'
                 torch.save(tf_statedict, os.path.join(args.ckpt_root, f"tf_{name}.pt"))
-                torch.save(self.model.state_dict(), os.path.join(args.ckpt_root, f"maskgit_{name}.pt"))
+            if valid_loss < best_vloss:
+                best_vloss = valid_loss
+                best_epoch = self.epoch
+        print(f'Best valid loss={best_vloss}@epoch{best_epoch}')
             # torch.save(self.model.module.transformer.state_dict(), os.path.join(args.ckpt_root, "transformer_current.pt"))
             # torch.save(self.model.transformer.state_dict(), os.path.join(args.ckpt_root, "transformer_current.pt"))
-            # torch.save(self.model.state_dict(), os.path.join(args.ckpt_root, "maskgit_current.pt"))
-
 
     def _train_one_epoch(self):
-        with tqdm(total= len(self.train_loader), desc=f"Train Epoch {self.epoch}", ncols=100) as pbar:
+        with tqdm(total= len(self.train_loader), desc=f"Train Epoch {self.epoch}, lr={self.scheduler2.get_last_lr()[-1]}", ncols=100) as pbar:
             for imgs in self.train_loader:
                 if not args.data_parallel:
                     imgs = imgs.to(device=args.device)
@@ -84,9 +88,9 @@ class TrainTransformer:
 
     def configure_optimizers(self):
         if args.data_parallel:
-            optimizer = torch.optim.Adam(self.model.module.transformer.parameters(), lr=1e-4, betas=(0.9, 0.96), weight_decay=4.5e-2)
+            optimizer = torch.optim.Adam(self.model.module.transformer.parameters(), lr=1e-4, betas=(0.9, 0.96), weight_decay=5e-3)
         else:
-            optimizer = torch.optim.Adam(self.model.transformer.parameters(), lr=1e-4, betas=(0.9, 0.96), weight_decay=4.5e-2)
+            optimizer = torch.optim.Adam(self.model.transformer.parameters(), lr=1e-4, betas=(0.9, 0.96), weight_decay=5e-3)
         scheduler = WarmUpLR(
             optimizer=optimizer,
             warmup_epoch= args.warmup_epoch,

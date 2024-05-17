@@ -29,7 +29,7 @@ class VQGAN(nn.Module):
     def encode(self, x):
         encoded_images = self.encoder(x)
         quantized_encoded_images = self.quant_conv(encoded_images)
-        #b,c,h,w   
+        #b,c,h,w
         codebook_mapping, codebook_indices, q_loss = self.codebook(quantized_encoded_images)
         #b,c,h,w   b*h*w
         return codebook_mapping, codebook_indices, q_loss
