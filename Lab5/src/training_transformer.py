@@ -23,7 +23,7 @@ class TrainTransformer:
             self.model = VQGANTransformer(MaskGit_CONFIGS["model_param"]).to(device=args.device)
         self.load_data(args)
         self.optim, self.scheduler = self.configure_optimizers()
-        self.scheduler2 = ReduceLROnPlateau(self.optim, patience=5, cooldown=3, min_lr=1e-8)
+        self.scheduler2 = ReduceLROnPlateau(self.optim, patience=3, cooldown=5, min_lr=1e-8)
         self.epoch = 0
         os.makedirs(args.ckpt_root, exist_ok=True)
         if len(args.start_from_ckpt) > 0:
@@ -33,40 +33,51 @@ class TrainTransformer:
 
     def train(self):
         self.step = 0
-        best_vloss = 1.5
+        best_vloss = 1.2
+        best_tloss = 1.0
         best_epoch = 0
+        best_tepoch = 0
         for self.epoch in range(1, args.epochs+1):
-            self._train_one_epoch()
+            train_loss = self._train_one_epoch()
             valid_loss = self._eval_one_epoch()
+            print(f'Epoch {self.epoch}: Avg. Train Loss={train_loss:.4f},  Avg. Valid Loss={valid_loss:.4f}')
             self.scheduler2.step(valid_loss)
-            if self.epoch % args.ckpt_interval == 0 and valid_loss < 1.5:
+            if self.epoch % args.ckpt_interval == 0 and valid_loss < 1.2:
                 tf_statedict = self.model.module.transformer.state_dict() if args.data_parallel else self.model.transformer.state_dict()
                 name = f'{args.name}_ep{self.epoch}_{valid_loss:.3f}' if len(args.name) > 0 else f'epoch{self.epoch}'
                 torch.save(tf_statedict, os.path.join(args.ckpt_root, f"tf_{name}.pt"))
             if valid_loss < best_vloss:
                 best_vloss = valid_loss
                 best_epoch = self.epoch
-        print(f'Best valid loss={best_vloss}@epoch{best_epoch}')
+            if train_loss < best_tloss:
+                best_tloss = best_tloss
+                best_tepoch = self.epoch
+        print(f'Best train loss={best_tloss}@epoch{best_tepoch}, valid loss={best_vloss}@epoch{best_epoch}')
             # torch.save(self.model.module.transformer.state_dict(), os.path.join(args.ckpt_root, "transformer_current.pt"))
             # torch.save(self.model.transformer.state_dict(), os.path.join(args.ckpt_root, "transformer_current.pt"))
 
     def _train_one_epoch(self):
-        with tqdm(total= len(self.train_loader), desc=f"Train Epoch {self.epoch}, lr={self.scheduler2.get_last_lr()[-1]}", ncols=100) as pbar:
+        loss_all=0
+        with tqdm(total= len(self.train_loader), desc=f"Train Epoch {self.epoch}, lr={self.scheduler2.get_last_lr()[-1]:.0e}", ncols=100) as pbar:
             for imgs in self.train_loader:
                 if not args.data_parallel:
                     imgs = imgs.to(device=args.device)
                 logits, z_indices = self.model(imgs)
                 loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), z_indices.reshape(-1))
+                loss_all+=loss.item()
                 loss.backward()
                 if self.step % args.accum_grad == 0:
                     self.optim.step()
                     self.optim.zero_grad()
                 if self.epoch <= args.warmup_epoch:
                     self.scheduler.step()
+                    pbar.set_description(f'Train Epoch {self.epoch}, lr={self.scheduler.get_last_lr()[-1]:.0e}')
                 self.step += 1
-                pbar.set_postfix_str(f'Loss={loss.cpu().detach().item():.4f}')
+                # pbar.set_postfix_str(f'Loss={loss.cpu().detach().item():.4f}')
+                pbar.set_postfix_str(f'Loss={loss.item():.4f}')
                 pbar.update(1)
         pbar.close()
+        return loss_all/len(self.train_loader)
 
     @torch.no_grad
     def _eval_one_epoch(self):
@@ -79,10 +90,10 @@ class TrainTransformer:
                 logits, z_indices = self.model(imgs)
                 loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), z_indices.reshape(-1))
                 loss_all+=loss.item()
+                pbar.set_postfix_str(f'Loss={loss.item():.4f}')
                 pbar.update(1)
         avg_loss = loss_all/len(self.val_loader)
         pbar.close()
-        print(f'Valid Epoch {self.epoch}: Avg. Validation Loss={avg_loss:.4f}')
         self.model.train()
         return avg_loss
 
@@ -130,11 +141,11 @@ if __name__ == '__main__':
     parser.add_argument('--accum-grad', type=int, default=6, help='Number for gradient accumulation.')
 
     #you can modify the hyperparameters 
-    parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train.')
+    parser.add_argument('--epochs', type=int, default=75, help='Number of epochs to train.')
     parser.add_argument('--ckpt-interval', type=int, default=1, help='Save CKPT per ** epochs(defcault: 1)')
     parser.add_argument('--start_from_ckpt', type=str, default='', help='start_from_ckpt.')
     parser.add_argument('--learning-rate', type=float, default=1e-4, help='Learning rate.')
-    parser.add_argument('--warmup_epoch', type=int, default=10, help='warmup_epoch.')
+    parser.add_argument('--warmup_epoch', type=int, default=5, help='warmup_epoch.')
 
     parser.add_argument('--MaskGitConfig', type=str, default='config/MaskGit.yml', help='Configurations for TransformerVQGAN')
 

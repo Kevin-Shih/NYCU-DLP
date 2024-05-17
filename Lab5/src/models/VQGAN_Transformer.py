@@ -71,12 +71,17 @@ class MaskGit(nn.Module):
         #logits:    transformer predict the probability of tokens
         _, z_indices = self.encode_to_z(x)
         device = z_indices.device
-        ratio = math.floor(self.gamma(np.random.uniform()) * z_indices.shape[1])
+        # ratio = math.floor(self.gamma(np.random.uniform()) * z_indices.shape[1])
+        ratio = math.floor(np.random.uniform() * z_indices.shape[1])
         mask_index = torch.rand(z_indices.shape, device= device).topk(ratio, dim= 1).indices
         mask = torch.zeros(z_indices.shape, dtype= torch.bool, device= device)
         mask.scatter_(dim= 1, index= mask_index, value= True)
-        masked_indices = mask * z_indices + (~mask) * torch.full_like(z_indices, self.mask_token_id)
+        masked_indices = (~mask) * z_indices + mask * torch.full_like(z_indices, self.mask_token_id)
         logits = self.transformer(masked_indices)
+        # masked_logits = logits 
+        # masked_logits[mask==True][-1] =1
+        # masked_logits[mask==True][:-1]=0
+        # return masked_logits, masked_indices
         return logits, z_indices
     
 ##TODO3 step1-1: define one iteration decoding
@@ -105,7 +110,7 @@ class MaskGit(nn.Module):
         _, idx = confidence.topk(n-1, dim=-1, largest=False) #update indices to mask only smallest n token
         mask_bc = torch.zeros(z_indices.shape, dtype=torch.bool).to(idx.device)
         mask_bc = mask_bc.scatter_(dim= 1, index= idx, value= True)
-        z_indices_predict = (~mask) * z_indices + mask * z_indices_predict# masked z
+        z_indices_predict = (~mask) * masked_indices + mask * z_indices_predict# masked_part use predicted z
         return z_indices_predict, mask_bc
     
 __MODEL_TYPE__ = {

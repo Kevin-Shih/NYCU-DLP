@@ -129,8 +129,9 @@ if __name__ == '__main__':
     # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test2_epoch40_1.072862052358687.pt', help='load ckpt')
     # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test2_epoch43_1.0765464416016703.pt', help='load ckpt')
     # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test2_epoch45_1.295958406413379.pt', help='load ckpt')
-    parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test3_ep34_1.015.pt', help='load ckpt')
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test3_ep34_1.015.pt', help='load ckpt')
     # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test3_ep29_1.347.pt', help='load ckpt')
+    parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test4_RoP_ep27_1.006.pt', help='load ckpt')
     
     #dataset path
     parser.add_argument('--test-maskedimage-path', type=str, default='../dataset/cat_face/masked_image', help='Path to testing image dataset.')
