@@ -30,8 +30,7 @@ class MaskGIT:
     @staticmethod
     def prepare():
         os.makedirs(args.out, exist_ok=True)
-        for step in range(0, args.sweet_spot):
-            os.makedirs(f"{args.out}/final_results_step{step}", exist_ok=True)
+        os.makedirs(f"{args.out}/final_results_step{args.sweet_spot}", exist_ok=True)
         os.makedirs(f"{args.out}/mask_scheduling", exist_ok=True)
         os.makedirs(f"{args.out}/imga", exist_ok=True)
 
@@ -60,9 +59,7 @@ class MaskGIT:
             for step in range(self.total_iter):
                 if step == self.sweet_spot:
                     break
-                # ratio = np.floor(self.model.gamma(step) * mask_num) #this should be updated
-                ratio = (step) / self.total_iter #this should be updated
-                # z_indices_predict, mask_bc = self.model.inpainting(ratio, z_indices, mask_bc, mask_num) # predict
+                ratio = step / self.total_iter #this should be updated
                 z_indices_predict, mask_bc = self.model.inpainting(ratio, z_indices_predict, mask_bc, mask_num) # predict
 
                 #static method yon can modify or not, make sure your visualization results are correct
@@ -79,8 +76,7 @@ class MaskGIT:
                 imga[step+1]=dec_img_ori #get decoded image
 
             ##decoded image of the sweet spot only, the test_results folder path will be the --predicted-path for fid score calculation
-                vutils.save_image(dec_img_ori, os.path.join(f"{args.out}/final_results_step{step}", f"image_{i:03d}.png"), nrow=1) 
-
+            vutils.save_image(dec_img_ori, os.path.join(f"{args.out}/final_results", f"image_{i:03d}.png"), nrow=1) 
             #demo score 
             vutils.save_image(maska, os.path.join(f"{args.out}/mask_scheduling", f"test_{i}.png"), nrow=10) 
             vutils.save_image(imga, os.path.join(f"{args.out}/imga", f"test_{i}.png"), nrow=7)
@@ -127,12 +123,16 @@ if __name__ == '__main__':
     
     
 #TODO3 step1-2: modify the path, MVTM parameters
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test2_epoch40_1.072862052358687.pt', help='load ckpt')
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test2_epoch43_1.0765464416016703.pt', help='load ckpt')
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test2_epoch45_1.295958406413379.pt', help='load ckpt')
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test3_ep34_1.015.pt', help='load ckpt')
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test3_ep29_1.347.pt', help='load ckpt')
-    parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test4_RoP_ep27_1.006.pt', help='load ckpt')
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep54_1.728.pt', help='load ckpt')# 46.20 @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep57_1.616.pt', help='load ckpt')# 45.09 @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep58_1.558.pt', help='load ckpt')# 43.93 @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep59_1.496.pt', help='load ckpt')# 46.62 @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep66_1.587.pt', help='load ckpt')# 46.06 @ cosine
+    parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep67_1.510.pt', help='load ckpt')# 43.30 @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep68_1.736.pt', help='load ckpt')# 44.88 @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep69_1.595.pt', help='load ckpt')# 46.59 @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep70_1.504.pt', help='load ckpt')# 44.95 @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep72_1.586.pt', help='load ckpt')# 45.69 @ cosine
     
     #dataset path
     parser.add_argument('--test-maskedimage-path', type=str, default='../dataset/cat_face/masked_image', help='Path to testing image dataset.')

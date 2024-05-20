@@ -10,7 +10,7 @@ import numpy as np
 from .VQGAN import VQGAN
 from .Transformer import BidirectionalTransformer
 import torch.nn.functional as F
-from torch import Tensor
+from torch import Tensor, device
 
 
 #TODO2 step1: design the MaskGIT model
@@ -42,8 +42,8 @@ class MaskGit(nn.Module):
         codebook_mapping, codebook_indices, _ = self.vqgan.encode(x)
         codebook_indices = codebook_indices.view(codebook_mapping.shape[0], -1)
         return codebook_mapping, codebook_indices
-    
-##TODO2 step1-2:    
+
+##TODO2 step1-2:
     def gamma_func(self, mode="cosine"):
         """Generates a mask rate by scheduling mask functions R.
 
@@ -62,31 +62,31 @@ class MaskGit(nn.Module):
             return lambda gamma: np.cos(gamma * np.pi / 2)
         elif mode == "square":
             return lambda gamma: 1 - gamma ** 2
+        elif mode == "log":
+            return lambda gamma: np.min((-np.log10(gamma+1e-8), 1.0))
         else:
             raise NotImplementedError
 
 ##TODO2 step1-3:            
     def forward(self, x):
         #z_indices: ground truth
-        #logits:    transformer predict the probability of tokens
+        #logits:    transformer predict the logits of tokens
+        device = x.device
         _, z_indices = self.encode_to_z(x)
-        device = z_indices.device
-        # ratio = math.floor(self.gamma(np.random.uniform()) * z_indices.shape[1])
-        ratio = math.floor(np.random.uniform() * z_indices.shape[1])
+
+        ratio = math.ceil(np.random.uniform() * z_indices.shape[1])
         mask_index = torch.rand(z_indices.shape, device= device).topk(ratio, dim= 1).indices
         mask = torch.zeros(z_indices.shape, dtype= torch.bool, device= device)
         mask.scatter_(dim= 1, index= mask_index, value= True)
+    
         masked_indices = (~mask) * z_indices + mask * torch.full_like(z_indices, self.mask_token_id)
         logits = self.transformer(masked_indices)
-        # masked_logits = logits 
-        # masked_logits[mask==True][-1] =1
-        # masked_logits[mask==True][:-1]=0
-        # return masked_logits, masked_indices
         return logits, z_indices
-    
+
 ##TODO3 step1-1: define one iteration decoding
     @torch.no_grad()
     def inpainting(self, ratio:float, z_indices:Tensor, mask:Tensor, mask_num):
+        device = mask.device
         masked_indices = (~mask) * z_indices + mask * torch.full_like(z_indices, self.mask_token_id) # masked z
         logits = self.transformer(masked_indices)
         #Apply softmax to convert logits into a probability distribution across the last dimension.
@@ -94,23 +94,22 @@ class MaskGit(nn.Module):
 
         #FIND MAX probability for each token value
         z_indices_predict_prob, z_indices_predict = probability.max(dim= -1)
-
+        z_indices_predict = (~mask) * z_indices + mask * z_indices_predict# masked_part use predicted z
 
         #predicted probabilities add temperature annealing gumbel noise as confidence
-        g = torch.distributions.Gumbel(0,1).sample()  # gumbel noise
+        g = torch.distributions.Gumbel(0, 1).sample(z_indices_predict_prob.shape).to(device)  # gumbel noise
         temperature = self.choice_temperature * (1 - ratio)
         confidence:Tensor = z_indices_predict_prob + temperature * g
         
-        #hint: If mask is False, the probability should be set to infinity, so that the tokens are not affected by the transformer's prediction
-        #sort the confidence for the rank 
-        #define how much the iteration remain predicted tokens by mask scheduling
-        #At the end of the decoding process, add back the original token values that were not masked to the predicted tokens
-        n = int(np.ceil(self.gamma(ratio) * mask_num))
-        confidence[masked_indices != self.mask_token_id] = torch.inf
-        _, idx = confidence.topk(n-1, dim=-1, largest=False) #update indices to mask only smallest n token
-        mask_bc = torch.zeros(z_indices.shape, dtype=torch.bool).to(idx.device)
+        """ hint: If mask is False, the probability should be set to infinity, so that the tokens are not affected by the transformer's prediction
+        sort the confidence for the rank 
+        define how much the iteration remain predicted tokens by mask scheduling
+        At the end of the decoding process, add back the original token values that were not masked to the predicted tokens """
+        n = math.ceil(self.gamma(ratio) * mask_num)
+        confidence[~mask] = torch.inf
+        _, idx = confidence.topk(n, dim=-1, largest=False) #update indices to mask only smallest n token
+        mask_bc = torch.zeros(z_indices.shape, dtype=torch.bool, device= device)
         mask_bc = mask_bc.scatter_(dim= 1, index= idx, value= True)
-        z_indices_predict = (~mask) * masked_indices + mask * z_indices_predict# masked_part use predicted z
         return z_indices_predict, mask_bc
     
 __MODEL_TYPE__ = {

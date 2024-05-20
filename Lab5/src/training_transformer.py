@@ -17,13 +17,12 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 class TrainTransformer:
     def __init__(self, args, MaskGit_CONFIGS):
         if args.data_parallel:
-            args.batch_size *= 2
+            args.batch_size *= 2 # use 2 gpu
             self.model = nn.DataParallel(VQGANTransformer(MaskGit_CONFIGS["model_param"]).to(device=args.device))
         else:
             self.model = VQGANTransformer(MaskGit_CONFIGS["model_param"]).to(device=args.device)
         self.load_data(args)
         self.optim, self.scheduler = self.configure_optimizers()
-        self.scheduler2 = ReduceLROnPlateau(self.optim, patience=5, cooldown=5, min_lr=1e-8)
         self.epoch = 0
         os.makedirs(args.ckpt_root, exist_ok=True)
         if len(args.start_from_ckpt) > 0:
@@ -33,16 +32,13 @@ class TrainTransformer:
 
     def train(self):
         self.step = 0
-        best_vloss = 1.2
-        best_tloss = 1.0
-        best_epoch = 0
-        best_tepoch = 0
+        best_vloss, best_tloss = 2.5, 2.5
+        best_epoch, best_tepoch = 0, 0
         for self.epoch in range(1, args.epochs+1):
             train_loss = self._train_one_epoch()
             valid_loss = self._eval_one_epoch()
             print(f'Epoch {self.epoch}: Avg. Train Loss={train_loss:.4f},  Avg. Valid Loss={valid_loss:.4f}')
-            self.scheduler2.step(valid_loss)
-            if self.epoch % args.ckpt_interval == 0 and valid_loss < 1.2:
+            if self.epoch % args.ckpt_interval == 0:
                 tf_statedict = self.model.module.transformer.state_dict() if args.data_parallel else self.model.transformer.state_dict()
                 name = f'{args.name}_ep{self.epoch}_{valid_loss:.3f}' if len(args.name) > 0 else f'epoch{self.epoch}'
                 torch.save(tf_statedict, os.path.join(args.ckpt_root, f"tf_{name}.pt"))
@@ -50,30 +46,27 @@ class TrainTransformer:
                 best_vloss = valid_loss
                 best_epoch = self.epoch
             if train_loss < best_tloss:
-                best_tloss = best_tloss
+                best_tloss = train_loss
                 best_tepoch = self.epoch
         print(f'Best train loss={best_tloss}@epoch{best_tepoch}, valid loss={best_vloss}@epoch{best_epoch}')
-            # torch.save(self.model.module.transformer.state_dict(), os.path.join(args.ckpt_root, "transformer_current.pt"))
-            # torch.save(self.model.transformer.state_dict(), os.path.join(args.ckpt_root, "transformer_current.pt"))
 
     def _train_one_epoch(self):
-        loss_all=0
-        with tqdm(total= len(self.train_loader), desc=f"Train Epoch {self.epoch}, lr={self.scheduler2.get_last_lr()[-1]:.0e}", ncols=100) as pbar:
+        loss_all = 0
+        with tqdm(total= len(self.train_loader), ncols=100) as pbar:
             for imgs in self.train_loader:
+                pbar.set_description(f'Train Epoch {self.epoch}, lr={self.scheduler.get_last_lr()[-1]:.0e}')
                 if not args.data_parallel:
                     imgs = imgs.to(device=args.device)
                 logits, z_indices = self.model(imgs)
                 loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), z_indices.reshape(-1))
-                loss_all+=loss.item()
+                loss_all += loss.item()
                 loss.backward()
                 if self.step % args.accum_grad == 0:
                     self.optim.step()
                     self.optim.zero_grad()
                 if self.epoch <= args.warmup_epoch:
                     self.scheduler.step()
-                    pbar.set_description(f'Train Epoch {self.epoch}, lr={self.scheduler.get_last_lr()[-1]:.0e}')
                 self.step += 1
-                # pbar.set_postfix_str(f'Loss={loss.cpu().detach().item():.4f}')
                 pbar.set_postfix_str(f'Loss={loss.item():.4f}')
                 pbar.update(1)
         pbar.close()
@@ -99,15 +92,15 @@ class TrainTransformer:
 
     def configure_optimizers(self):
         if args.data_parallel:
-            optimizer = torch.optim.Adam(self.model.module.transformer.parameters(), lr=args.learning_rate, betas=(0.9, 0.96), weight_decay=5e-3)
+            optimizer = torch.optim.AdamW(self.model.module.transformer.parameters(), lr=args.learning_rate, betas=(0.9, 0.96), weight_decay=5e-3)
         else:
-            optimizer = torch.optim.Adam(self.model.transformer.parameters(), lr=args.learning_rate, betas=(0.9, 0.96), weight_decay=5e-3)
+            optimizer = torch.optim.AdamW(self.model.transformer.parameters(), lr=args.learning_rate, betas=(0.9, 0.96), weight_decay=5e-3)
         scheduler = WarmUpLR(
             optimizer=optimizer,
             warmup_epoch= args.warmup_epoch,
             total_iters= len(self.train_loader)
         )
-        return optimizer,scheduler
+        return optimizer, scheduler
 
     def load_data(self, args):
         train_dataset = LoadTrainData(root= args.train_d_path, partial=args.partial)
@@ -134,11 +127,11 @@ if __name__ == '__main__':
     parser.add_argument('--ckpt_root', type=str, default='../ckpt', help='Path to checkpoint dir.')
     parser.add_argument('--device', type=str, default="cuda:0", help='Which device the training is on.')
     parser.add_argument('--num_workers', type=int, default=8, help='Number of worker')
-    parser.add_argument('--batch-size', type=int, default=32, help='Batch size for training.')
+    parser.add_argument('--batch-size', type=int, default=24, help='Batch size for training.')
     parser.add_argument('--data-parallel', action='store_true', help='Use DataParallel.')
     parser.add_argument('--partial', type=float, default=1.0, help='Data used in training')
     parser.add_argument('--name', type=str, default='', help='Run name')
-    parser.add_argument('--accum-grad', type=int, default=6, help='Number for gradient accumulation.')
+    parser.add_argument('--accum-grad', type=int, default=10, help='Number for gradient accumulation.')
 
     #you can modify the hyperparameters
     parser.add_argument('--epochs', type=int, default=75, help='Number of epochs to train.')

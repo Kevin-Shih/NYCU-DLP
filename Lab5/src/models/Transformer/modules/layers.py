@@ -15,6 +15,7 @@ class MultiHeadAttention(nn.Module):
 
         self.linear_in = nn.Linear(self.embed_dim, 3 * self.embed_dim)
         self.linear_out = nn.Linear(self.embed_dim, self.embed_dim)
+        self.dropout = nn.Dropout(self.attn_drop)
 
     def forward(self, x: Tensor):
         ''' Hint: input x tensor shape is (batch_size, num_image_tokens, dim), 
@@ -33,6 +34,7 @@ class MultiHeadAttention(nn.Module):
         # see 32B, 16H as batch like, compute at once
         scores = q.matmul(k.transpose(-2, -1)) / math.sqrt(dk) # QK^T/sqrt(dk) 
         attention = F.softmax(scores, dim= -1)
+        attention = self.dropout(attention)
         # swap H & T then merge all heads
         out = torch.matmul(attention, v)\
                 .permute(0, 2, 1, 3).reshape(bs, token_len, self.embed_dim) #-> 32B, 256T(seq), 768dim

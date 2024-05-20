@@ -92,9 +92,11 @@ class LoadMaskData(torchData):
         return self.transform(imgloader(path))
     
 class WarmUpLR(_LRScheduler):
-    def __init__(self, optimizer, warmup_epoch=10, total_iters= 197, last_epoch= -1):
+    def __init__(self, optimizer, warmup_epoch=10, total_iters= 0, last_epoch= -1, start_lr = 1e-7):
         self.total_iters = total_iters*warmup_epoch
+        self.start_lr = start_lr
         super().__init__(optimizer, last_epoch)
 
     def get_lr(self):
-        return [base_lr * self.last_epoch / (1e-8 if self.total_iters == 0 else self.total_iters) for base_lr in self.base_lrs]
+        return [self.start_lr + (base_lr - self.start_lr) * self.last_epoch /\
+                (1e-8 if self.total_iters == 0 else self.total_iters) for base_lr in self.base_lrs]
