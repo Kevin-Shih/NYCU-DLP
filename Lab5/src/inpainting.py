@@ -126,22 +126,28 @@ if __name__ == '__main__':
     
     
 #TODO3 step1-2: modify the path, MVTM parameters
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep54_1.728.pt', help='load ckpt')# 46.20 @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep57_1.616.pt', help='load ckpt')# 45.09 @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep58_1.558.pt', help='load ckpt')# 43.93 @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep59_1.496.pt', help='load ckpt')# 46.62 @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep66_1.587.pt', help='load ckpt')# 46.06 @ cosine
     # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep67_1.510.pt', help='load ckpt')# 43.30 @ cosine
     # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep68_1.736.pt', help='load ckpt')# 44.88 @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep69_1.595.pt', help='load ckpt')# 46.59 @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep70_1.504.pt', help='load ckpt')# 44.95 @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test10_ep72_1.586.pt', help='load ckpt')# 45.69 @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep45_1.536.pt', help='load ckpt')#  @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep46_1.474.pt', help='load ckpt')#  @ cosine
-    parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep51_1.415.pt', help='load ckpt')#  @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep52_1.576.pt', help='load ckpt')#  @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep54_1.541.pt', help='load ckpt')#  @ cosine
-    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/.pt', help='load ckpt')#  @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep45_1.536.pt', help='load ckpt')# 38.95 @ cosine
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep46_1.474.pt', help='load ckpt')# 38.28 @ cosine step
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep51_1.415.pt', help='load ckpt')# 37.69 @ cosine step
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep52_1.576.pt', help='load ckpt')# 37.94 @ cosine step
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep54_1.541.pt', help='load ckpt')# 37.23 @ cosine step
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep57_1.491.pt', help='load ckpt')# 36.46 @ cosine step
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep64_1.532.pt', help='load ckpt')# 39.61 @ cosine step
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep66_1.448.pt', help='load ckpt')# 36.24 @ cosine step0 39.92 @ cosine step9
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep68_1.402.pt', help='load ckpt')# 36.37 @ cosine step0 39.49 @ cosine step9
+    parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep72_1.451.pt', help='load ckpt')# 35.13 @ cosine step0
+    # 38.40 @ cosine step9, 38.30 @ linear step9, 38.43 @ square step9, 37.23 @ log step9
+    # 38.59 @ cosine step8, 38.22 @ linear step8, 37.88 @ square step8, 37.31 @ log step8
+    # 38.19 @ cosine step7, 38.28 @ linear step7, 37.85 @ square step7, 37.13 @ log step7
+    # 37.97 @ cosine step6, 37.72 @ linear step6, 37.63 @ square step6, 37.12 @ log step6
+    # 37.42 @ cosine step5, 37.51 @ linear step5, 37.22 @ square step5, 37.18 @ log step5
+    # 35.87 @ cosine step4, 36.70 @ linear step4, 36.56 @ square step4, 36.97 @ log step4
+    # 35.59 @ cosine step3, 36.40 @ linear step3, 36.12 @ square step3, 36.83 @ log step3
+    # 35.48 @ cosine step2, 36.16 @ linear step2, 35.38 @ square step2, 35.13 @ log step2
+    # 35.13 @ cosine step1, 35.13 @ linear step1, 35.13 @ square step1, 35.13 @ log step1
+    # parser.add_argument('--load-transformer-ckpt-path', type=str, default='../ckpt/tf_test11_ep75_1.519.pt', help='load ckpt')# 37.07 @ cosine step
     
     #dataset path
     parser.add_argument('--test-maskedimage-path', type=str, default='../dataset/cat_face/masked_image', help='Path to testing image dataset.')
